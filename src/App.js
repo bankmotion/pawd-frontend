@@ -37,8 +37,8 @@ const App = () => {
   return (
     <HelmetProvider>
       <Helmet
-        titleTemplate="%s | Bob's Programming Academy"
-        defaultTitle="Bob's Programming Academy"
+        titleTemplate="%s | BubbleMap"
+        defaultTitle="BubbleMap"
       />
       <ColorModeContext.Provider value={colorMode}>
         <ThemeProvider theme={customTheme[mode]}>
@@ -47,6 +47,7 @@ const App = () => {
             <Layout>
               <Routes>
                 <Route exact path='/' element={<Dashboard />} />
+                {/* <Route exact path='/' element={<BubbleMap />} /> */}
               </Routes>
             </Layout>
           </BrowserRouter>

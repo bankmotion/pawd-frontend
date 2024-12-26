@@ -48,7 +48,7 @@ const Footer = () => {
                           variant='body2'
                           color={theme.palette.text.secondary}
                         >
-                          Privacy Policy
+                          {/* Privacy Policy */}
                         </Typography>
                       }
                     />
@@ -60,7 +60,7 @@ const Footer = () => {
                           variant='body2'
                           color={theme.palette.text.secondary}
                         >
-                          Terms of Use
+                          {/* Terms of Use */}
                         </Typography>
                       }
                     />
@@ -77,8 +77,8 @@ const Footer = () => {
                         variant='body2'
                         color={theme.palette.text.secondary}
                       >
-                        Copyright &copy; {new Date().getFullYear()} Bob's
-                        Programming Academy.
+                        {/* Copyright &copy; {new Date().getFullYear()} Bob's
+                        Programming Academy. */}
                       </Typography>
                     }
                   />
@@ -94,7 +94,7 @@ const Footer = () => {
                         variant='body2'
                         color={theme.palette.text.secondary}
                       >
-                        Data provided by{' '}
+                        {/* Data provided by{' '}
                         <Link
                           href='https://www.coingecko.com/'
                           alt='CoinGecko'
@@ -104,7 +104,7 @@ const Footer = () => {
                         >
                           CoinGecko
                         </Link>
-                        .
+                        . */}
                       </Typography>
                     }
                   />

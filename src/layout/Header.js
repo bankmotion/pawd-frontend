@@ -115,7 +115,7 @@ const Header = ({ onSidebarOpen }) => {
                     },
                   }}
                 >
-                  Cryptocurrency Dashboard
+                 Pawd
                 </Typography>
               </IconButton>
             </Box>
@@ -129,7 +129,7 @@ const Header = ({ onSidebarOpen }) => {
           >
             <CustomButton href='/' icon={<DashboardIcon />} text='Dashboard' />
             <CustomButton href='#' icon={<HelpIcon />} text='About' />
-            <CustomButton href='#' icon={<EmailIcon />} text='Contact' />
+            {/* <CustomButton href='#' icon={<EmailIcon />} text='Contact' /> */}
           </Box>
           <Divider
             orientation='vertical'
@@ -187,8 +187,8 @@ const Header = ({ onSidebarOpen }) => {
                 vertical: 'bottom',
               }}
               keepMounted
-              onClose={handleClose}
-              open={open}
+              // onClose={handleClose}
+              // open={open}
               PaperProps={{
                 sx: { width: 240 },
               }}
@@ -198,7 +198,7 @@ const Header = ({ onSidebarOpen }) => {
                   color={theme.palette.text.primary}
                   variant='subtitle2'
                 >
-                  Bob
+                  Scott
                 </Typography>
                 <Typography
                   color={theme.palette.text.secondary}
