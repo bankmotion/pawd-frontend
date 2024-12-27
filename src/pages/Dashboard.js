@@ -18,6 +18,8 @@ import Spacer from '../components/Spacer';
 
 import './Dashboard.css';
 
+const SEVER_URL = process.env.REACT_APP_SEVER_URL;
+
 const Dashboard = () => {
   const theme = useTheme();
   const [seedWalletAddress, setSeedWalletAddress] = useState('');
@@ -27,7 +29,8 @@ const Dashboard = () => {
   const fetchWalletData = async () => {
     setLoading(true); // Set loading to true when fetching data
     try {
-      const response = await axios.get(`http://localhost:5000/api/wallet/${seedWalletAddress}`);
+      // const response = await axios.get(`http://localhost:5000/api/wallet/${seedWalletAddress}`);
+      const response = await axios.get(`${SEVER_URL}/api/wallet/${seedWalletAddress}`)
       setSeedWalletData(response.data);
     } catch (error) {
       console.error('Error fetching wallet data:', error);

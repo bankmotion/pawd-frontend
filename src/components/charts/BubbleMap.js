@@ -1,14 +1,22 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useTheme } from '@mui/material/styles';
+import { useTheme } from "@mui/material/styles";
+import { Button, TextField, IconButton, Paper, Box, Typography } from "@mui/material";
 import * as d3 from "d3";
+import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
 const BubbleMap = ({ rawData }) => {
     const theme = useTheme();
     const svgRef = useRef();
+    const [showWallets, setShowWallets] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
     const [tooltip, setTooltip] = useState({
         content: `<span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span><span style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${rawData.address || 'N/A'}</span></br><span style="font-weight: bold; color: #FF9800;">💰 Balance:</span> <span style="color: #E0E0E0;">${rawData.balance}</span>`
     });
-    const [clickedNodeId, setClickedNodeId] = useState(null); // State to track clicked node
+    const [clickedNodeId, setClickedNodeId] = useState(null);
+    const [visibilityMap, setVisibilityMap] = useState({}); // State for managing visibility of nodes/links.
 
     const transformData = (rawData) => {
         const nodes = [];
@@ -28,13 +36,13 @@ const BubbleMap = ({ rawData }) => {
         };
 
         traverse(rawData);
+        console.log(nodes, links, "nodes, links");
         return { nodes, links };
     };
 
     useEffect(() => {
         const { nodes, links } = transformData(rawData);
 
-        // Set the main wallet as the default clicked node
         const mainWalletNode = nodes.find((node) => node.isMainWallet);
         if (mainWalletNode && !clickedNodeId) {
             setClickedNodeId(mainWalletNode.id);
@@ -48,16 +56,16 @@ const BubbleMap = ({ rawData }) => {
             .attr("viewBox", [0, 0, width, height])
             .style("font", "12px sans-serif");
 
-        svg.selectAll("*").remove(); // Clear previous renders
+        svg.selectAll("*").remove();
 
         const simulation = d3
             .forceSimulation(nodes)
             .force("link", d3.forceLink(links).id((d) => d.id).distance(120))
             .force("charge", d3.forceManyBody().strength(-500))
-            .force("center", d3.forceCenter(width / 2, height / 2)) // Ensure center is correct
-            .force("x", d3.forceX(width / 2).strength(0.1))  // Adding force to help center on X
-            .force("y", d3.forceY(height / 2).strength(0.1)) // Adding force to help center on Y
-            .alphaDecay(0.05); // Adjust the decay rate to stop the movement once the simulation settles
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("x", d3.forceX(width / 2).strength(0.1))
+            .force("y", d3.forceY(height / 2).strength(0.1))
+            .alphaDecay(0.05);
 
         const link = svg
             .append("g")
@@ -67,26 +75,27 @@ const BubbleMap = ({ rawData }) => {
             .data(links)
             .join("line")
             .attr("stroke-width", 2)
-            .attr("stroke-dasharray", "4,2");
+            .attr("stroke-dasharray", "4,2")
+            .attr("class", (d) => `link-${d.source.id}-${d.target.id}`);
 
-        const maxBalance = Math.max(...nodes.map((node) => node.balance)); // Find the maximum balance
-        const minBalance = 0; // Set a minimum balance value, assuming a balance of 0
-        const minRadius = 10; // Minimum radius for nodes with 0 balance
-        const maxRadius = 30; // Maximum radius for nodes with the largest balance
+        const maxBalance = Math.max(...nodes.map((node) => node.balance));
+        const minBalance = 0;
+        const minRadius = 10;
+        const maxRadius = 30;
 
         const radiusScale = d3.scaleLog()
-        .domain([minBalance + 1, maxBalance]) // Ensure no logarithmic error for 0
-        .range([minRadius, maxRadius]);
+            .domain([minBalance + 1, maxBalance])
+            .range([minRadius, maxRadius]);
 
         const node = svg
             .append("g")
             .selectAll("circle")
             .data(nodes)
             .join("circle")
-            .attr("r", (d) => (d.id === clickedNodeId ? 20 : d.isMainWallet ? 30 : radiusScale(d.balance + 1))) // Larger size for clicked bubble
+            .attr("r", (d) => (d.id === clickedNodeId ? 20 : d.isMainWallet ? 30 : radiusScale(d.balance + 1)))
             .attr("fill", (d) =>
                 d.id === d.isMainWallet
-                    ? '#FF5733' // Special color for main wallet
+                    ? '#FF5733'
                     : d3.interpolateRainbow(d.group / 10)
             )
             .attr("stroke", (d) =>
@@ -94,41 +103,14 @@ const BubbleMap = ({ rawData }) => {
                     ? theme.palette.secondary.main
                     : theme.palette.secondary.light
             )
-            .attr("stroke-width", (d) => (d.id === clickedNodeId ? 4 : d.isMainWallet ? 10 : 2)) // Thicker border for clicked bubble
+            .attr("stroke-width", (d) => (d.id === clickedNodeId ? 4 : d.isMainWallet ? 10 : 2))
+            .attr("class", (d) => `node-${d.id}`)
             .on("click", (event, d) => {
-                setClickedNodeId(d.id); // Set the clicked node as active
+                setClickedNodeId(d.id);
                 setTooltip({
-                    content: `<span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span><span style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${d.address || 'N/A'}</span></br><span style="font-weight: bold; color: #FF9800;">💰 Balance:</span> <span style="color: #E0E0E0;">${d.balance}</span>`,
-                    x: event.pageX,
-                    y: event.pageY
+                    content: `<span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span><span style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${d.address || 'N/A'}</span></br><span style="font-weight: bold; color: #FF9800;">💰 Balance:</span> <span style="color: #E0E0E0;">${d.balance}</span>`
                 });
-            })
-            .on("mousemove", (event) => {
-                setTooltip((prev) => ({
-                    ...prev,
-                    x: event.pageX,
-                    y: event.pageY,
-                }));
-            })
-            .call(
-                d3.drag()
-                    .on("start", (event, d) => {
-                        if (!event.active) simulation.alphaTarget(0.3).restart();
-                        d.fx = d.x;
-                        d.fy = d.y;
-                    })
-                    .on("drag", (event, d) => {
-                        d.fx = event.x;
-                        d.fy = event.y;
-                    })
-                    .on("end", (event, d) => {
-                        if (!event.active) simulation.alphaTarget(0);
-                        d.fx = null;
-                        d.fy = null;
-                    })
-            );
-
-        node.append("title").text((d) => `Node: ${d.id}\nGroup: ${d.group}`);
+            });
 
         const text = svg
             .append("g")
@@ -166,41 +148,229 @@ const BubbleMap = ({ rawData }) => {
                 .attr("x", (d) => d.x)
                 .attr("y", (d) => d.y);
         });
-    }, [rawData, theme, clickedNodeId]);
+
+        const zoom = d3.zoom().on("zoom", (event) => {
+            svg.attr("transform", event.transform);
+        });
+
+        svg.call(zoom);
+
+        // When dragging starts, change cursor to 'grabbing'
+        svg.on("mouseover", () => {
+            svg.style("cursor", "grab");
+        });
+
+        svg.on("mousedown", () => {
+            svg.style("cursor", "grabbing");
+        });
+
+        svg.on("mouseup", () => {
+            svg.style("cursor", "grab");
+        });
+
+        svg.on("mouseleave", () => {
+            svg.style("cursor", "default");
+        });
+
+        console.log('useEffect triggered, visibilityMap:', visibilityMap);
+        // Update visibility for nodes and links
+        nodes.forEach((node) => {
+            const visibility = visibilityMap[node.id] !== false; // Default is true.
+            // console.log(`Node ${node.id} visibility:`, visibility ? 'visible' : 'hidden');
+            svg
+                .selectAll(`.node-${node.id}`)
+                .style("opacity", visibility ? 1 : 0)
+                .style("pointer-events", visibility ? "auto" : "none");
+        });
+
+        links.forEach((link) => {
+            const sourceVisible = visibilityMap[link.source.id] !== false;
+            const targetVisible = visibilityMap[link.target.id] !== false;
+            const visibility = sourceVisible && targetVisible;
+            // console.log(`Link visibility between ${link.source.id} and ${link.target.id}:`, visibility ? 'visible' : 'hidden');
+            svg
+                .selectAll(
+                    `.link-${link.source.id}-${link.target.id}`
+                )
+                .style("opacity", visibility ? 1 : 0)
+                .style("pointer-events", visibility ? "auto" : "none");
+        });
+
+    }, [rawData, theme, clickedNodeId, visibilityMap]);
+
+
+    const toggleVisibility = (wallet) => {
+        console.log('Toggling visibility for:', wallet.address);
+
+        setVisibilityMap((prev) => {
+            // Toggle the visibility based on the current visibility state
+            const updatedVisibility = prev[wallet.address] !== false;
+            console.log('Current visibilityMap before update:', prev);
+            console.log('Updated visibility for wallet:', wallet.address, updatedVisibility ? 'hidden' : 'visible');
+
+            const newVisibilityMap = {
+                ...prev,
+                [wallet.address]: updatedVisibility ? false : true,  // Toggle visibility
+            };
+
+            console.log('Updated visibilityMap:', newVisibilityMap);
+            return newVisibilityMap;
+        });
+    };
+
+    const filteredWallets = rawData.nodes
+        ?.filter(wallet => wallet.address?.toLowerCase().includes(searchQuery.toLowerCase()))
+        ?.sort((a, b) => b.balance - a.balance);
 
     return (
         <div
             style={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
+                position: "relative",
                 height: "65vh",
-                background: '#05579f',
+                background: "#05579f",
                 borderRadius: "12px",
                 boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
                 padding: "16px",
-                position: "relative",
+                overflow: "hidden"
             }}
         >
-            <svg ref={svgRef} style={{ width: "100%", height: "100%" }}></svg>
+            <svg ref={svgRef} style={{ width: "100%", height: "100%", position: "absolute" }}></svg>
 
-            {/* Tooltip */}
+            {/* Conditional rendering for the button or wallet list */}
+            {!showWallets ? (
+                <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => setShowWallets(true)}
+                    style={{
+                        position: "absolute",
+                        top: "16px",
+                        right: "16px",
+                        zIndex: 10
+                    }}
+                >
+                    Wallets List
+                </Button>
+            ) : (
+                <Box
+                    sx={{
+                        position: "absolute",
+                        top: 0,
+                        right: 0,
+                        width: "30%",
+                        maxHeight: "65vh",
+                        minHeight: "65vh",
+                        display: "flex",
+                        flexDirection: "column",
+                        padding: 2,
+                        paddingRight: 0,
+                        borderRadius: 2,
+                        boxShadow: 3,
+                        bgcolor: "rgba(35, 48, 68, 0.85)", // Slight transparency
+                        color: "text.primary"
+                    }}
+                >
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                            Wallets List
+                        </Typography>
+                        <IconButton color="primary" onClick={() => { setShowWallets(false), setSearchQuery('') }}>
+                            <CloseIcon />
+                        </IconButton>
+                    </Box>
+                    <Box sx={{ display: "flex", marginBottom: 1 }}>
+                        <TextField
+                            label="Search Wallet"
+                            variant="outlined"
+                            size="small"
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            fullWidth
+                        />
+                        <IconButton color="primary">
+                            <SearchIcon />
+                        </IconButton>
+                    </Box>
+                    <Paper
+                        sx={{
+                            backgroundColor: "transparent", // Make paper transparent
+                            boxShadow: "none",
+                            overflowY: "auto",
+                            maxHeight: "56vh",
+                            minHeight: "56vh",
+                            '&::-webkit-scrollbar': {
+                                width: '8px',  // Set scrollbar width
+                                backgroundColor: 'transparent', // Make the scrollbar track transparent
+                            },
+                            '&::-webkit-scrollbar-thumb': {
+                                backgroundColor: '#888',  // Set color of the thumb
+                                borderRadius: '4px', // Rounded edges for the thumb
+                                transition: 'background-color 0.3s', // Smooth transition effect
+                            },
+                            '&::-webkit-scrollbar-thumb:hover': {
+                                backgroundColor: '#555',  // Darker thumb color on hover
+                            },
+                            '&::-webkit-scrollbar-track': {
+                                backgroundColor: 'rgba(0, 0, 0, 0.1)',  // Track background color
+                                borderRadius: '4px',  // Rounded track edges
+                            }
+                        }}
+                    >
+                        <ul style={{ padding: 0, listStyleType: "none" }}>
+                            {filteredWallets?.map((wallet, index) => (
+                                <li key={index}>
+                                    <Box
+                                        sx={{
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            alignItems: "center",
+                                            padding: "8px 0",
+                                            borderBottom: "1px solid rgba(0, 0, 0, 0.1)",
+                                        }}
+                                    >
+                                        <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 'bold' }}>
+                                            #{index + 1} {/* Display number before the address */}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ color: "text.primary" }}>
+                                            {wallet.address
+                                                ? `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`
+                                                : "Unnamed Wallet"}
+                                        </Typography>
+                                        <Typography
+                                            variant="caption"
+                                            sx={{ color: "text.secondary", fontSize: "12px" }}
+                                        >
+                                            {wallet.balance ? `${parseFloat(wallet.balance).toFixed(4)} ETH` : "0.0000 ETH"}
+                                        </Typography>
+                                        <IconButton onClick={() => toggleVisibility(wallet)}>
+                                            {Array.isArray(visibilityMap[wallet.address]) && visibilityMap[wallet.address].length === 0 ? (
+                                                <Visibility />  // Display <Visibility /> if the visibilityMap[wallet.address] is an empty array
+                                            ) : visibilityMap[wallet.address]== false ? (
+                                                <VisibilityOff />  // Display <VisibilityOff /> if visibilityMap[wallet.address] is true
+                                            ) : (
+                                                <Visibility />  // Default, display <Visibility /> if visibilityMap[wallet.address] is false or undefined
+                                            )}
+                                        </IconButton>
+                                    </Box>
+                                </li>
+
+                            ))}
+                        </ul>
+                    </Paper>
+                </Box>
+            )}
+
             {tooltip && (
                 <div
                     style={{
                         position: "absolute",
-                        top: 0,
-                        left: 0,
+                        top: "0",
+                        left: "0",
                         background: "rgb(35, 48, 68)",
                         color: "white",
-                        padding: "8px",
-                        borderRadius: "12px",
-                        boxShadow: "0px 8px 20px rgba(0, 0, 0, 0.3)",
-                        pointerEvents: "none",
-                        whiteSpace: "pre-wrap",
+                        padding: "10px",
+                        borderRadius: "8px",
                         fontSize: "14px",
-                        zIndex: 9999,
-                        transition: "all 0.2s ease",
+                        zIndex: 20
                     }}
                     dangerouslySetInnerHTML={{ __html: tooltip.content }}
                 />
