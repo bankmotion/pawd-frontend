@@ -105,6 +105,22 @@ const BubbleMap = ({ rawData }) => {
             )
             .attr("stroke-width", (d) => (d.id === clickedNodeId ? 4 : d.isMainWallet ? 10 : 2))
             .attr("class", (d) => `node-${d.id}`)
+            .call(d3.drag()
+                .on("start", (event, d) => {
+                    if (!event.active) simulation.alphaTarget(0.3).restart();
+                    d.fx = d.x;
+                    d.fy = d.y;
+                })
+                .on("drag", (event, d) => {
+                    d.fx = event.x;
+                    d.fy = event.y;
+                })
+                .on("end", (event, d) => {
+                    if (!event.active) simulation.alphaTarget(0);
+                    d.fx = null;
+                    d.fy = null;
+                })
+            )
             .on("click", (event, d) => {
                 setClickedNodeId(d.id);
                 setTooltip({
@@ -126,7 +142,13 @@ const BubbleMap = ({ rawData }) => {
         const icon = svg
             .append("g")
             .selectAll("text")
-            .data(nodes.filter((d) => d.id === clickedNodeId)) // Only the clicked node
+            .data(nodes.filter((d) =>
+                d.id === clickedNodeId &&
+                (
+                    (visibilityMap[clickedNodeId] && visibilityMap[clickedNodeId] == true) ||
+                    (visibilityMap[clickedNodeId] == null)
+                )
+            ))
             .join("text")
             .attr("text-anchor", "middle")
             .attr("dominant-baseline", "central")
@@ -149,7 +171,7 @@ const BubbleMap = ({ rawData }) => {
                 .attr("y", (d) => d.y);
         });
 
-        const zoom = d3.zoom().on("zoom", (event) => {
+        const zoom = d3.zoom().scaleExtent([1, 10]).on("zoom", (event) => {
             svg.attr("transform", event.transform);
         });
 
@@ -198,7 +220,7 @@ const BubbleMap = ({ rawData }) => {
 
     }, [rawData, theme, clickedNodeId, visibilityMap]);
 
-
+    console.log(clickedNodeId, visibilityMap[clickedNodeId], "clickedNodeId, visibilityMap[clickedNodeId]")
     const toggleVisibility = (wallet) => {
         console.log('Toggling visibility for:', wallet.address);
 
@@ -216,6 +238,18 @@ const BubbleMap = ({ rawData }) => {
             console.log('Updated visibilityMap:', newVisibilityMap);
             return newVisibilityMap;
         });
+    };
+
+    const selectWallet = (wallet) => {
+        // Find the node corresponding to the wallet
+        const walletNode = rawData.nodes.find(node => node.address === wallet.address);
+        console.log(wallet, walletNode, walletNode.address, "wallet, walletNode, walletNode.id")
+        if (walletNode) {
+            setClickedNodeId(walletNode.address); // Update clickedNodeId to highlight the node
+            setTooltip({
+                content: `<span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span><span style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${walletNode.address || 'N/A'}</span></br><span style="font-weight: bold; color: #FF9800;">💰 Balance:</span> <span style="color: #E0E0E0;">${walletNode.balance}</span>`
+            });
+        }
     };
 
     const filteredWallets = rawData.nodes
@@ -317,7 +351,7 @@ const BubbleMap = ({ rawData }) => {
                     >
                         <ul style={{ padding: 0, listStyleType: "none" }}>
                             {filteredWallets?.map((wallet, index) => (
-                                <li key={index}>
+                                <li key={index} onClick={() => selectWallet(wallet)} >
                                     <Box
                                         sx={{
                                             display: "flex",
@@ -325,6 +359,8 @@ const BubbleMap = ({ rawData }) => {
                                             alignItems: "center",
                                             padding: "8px 0",
                                             borderBottom: "1px solid rgba(0, 0, 0, 0.1)",
+                                            backgroundColor: wallet.address === clickedNodeId ? "rgb(54 101 175)" : "transparent",
+                                            color: wallet.address === clickedNodeId ? theme.palette.primary.contrastText : "inherit",
                                         }}
                                     >
                                         <Typography variant="body2" sx={{ color: "text.primary", fontWeight: 'bold' }}>
@@ -344,7 +380,7 @@ const BubbleMap = ({ rawData }) => {
                                         <IconButton onClick={() => toggleVisibility(wallet)}>
                                             {Array.isArray(visibilityMap[wallet.address]) && visibilityMap[wallet.address].length === 0 ? (
                                                 <Visibility />  // Display <Visibility /> if the visibilityMap[wallet.address] is an empty array
-                                            ) : visibilityMap[wallet.address]== false ? (
+                                            ) : visibilityMap[wallet.address] == false ? (
                                                 <VisibilityOff />  // Display <VisibilityOff /> if visibilityMap[wallet.address] is true
                                             ) : (
                                                 <Visibility />  // Default, display <Visibility /> if visibilityMap[wallet.address] is false or undefined
