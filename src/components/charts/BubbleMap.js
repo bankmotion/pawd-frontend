@@ -18,6 +18,8 @@ const BubbleMap = ({ rawData }) => {
     const [clickedNodeId, setClickedNodeId] = useState(null);
     const [visibilityMap, setVisibilityMap] = useState({}); // State for managing visibility of nodes/links.
 
+    const SEVER_URL = process.env.REACT_APP_SEVER_URL;
+
     const transformData = (rawData) => {
         const nodes = [];
         const links = [];
@@ -240,14 +242,87 @@ const BubbleMap = ({ rawData }) => {
         });
     };
 
-    const selectWallet = (wallet) => {
-        // Find the node corresponding to the wallet
-        const walletNode = rawData.nodes.find(node => node.address === wallet.address);
-        console.log(wallet, walletNode, walletNode.address, "wallet, walletNode, walletNode.id")
-        if (walletNode) {
-            setClickedNodeId(walletNode.address); // Update clickedNodeId to highlight the node
+    const selectWallet = async (wallet) => {
+        try {
+            // Step 1: Find the wallet node
+            const walletNode = rawData.nodes.find(node => node.address === wallet.address);
+            if (!walletNode) {
+                console.error("Wallet node not found");
+                return;
+            }
+
+            // Step 2: Update clicked node to highlight the wallet
+            setClickedNodeId(walletNode.address);
+
+            // Step 3: Show a temporary "loading" tooltip while fetching data
             setTooltip({
-                content: `<span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span><span style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${walletNode.address || 'N/A'}</span></br><span style="font-weight: bold; color: #FF9800;">💰 Balance:</span> <span style="color: #E0E0E0;">${walletNode.balance}</span>`
+                content: `<span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span>
+                          <span style="font-size: 14px; color: #E0E0E0;">${wallet.address || 'N/A'}</span></br>
+                          <span style="font-weight: bold; color: #FF9800;">Loading additional data...</span>`
+            });
+
+            // Step 4: Fetch data from the backend (asynchronous)
+            const { nodes } = transformData(rawData);
+            const mainWalletNode = nodes.find((node) => node.isMainWallet);
+            console.log(mainWalletNode, "mainWalletNode");
+
+            // Step 5: Make an API call to the backend with both wallet.address and mainWalletNode.address
+            const response = await fetch(`${SEVER_URL}/api/wallet/data`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json', // Indicate that we're sending JSON data
+                },
+                body: JSON.stringify({
+                    address: wallet.address,
+                    mainWalletAddress: mainWalletNode.address,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch wallet data: ${response.statusText}`);
+            }
+
+            // Step 6: Parse the response
+            const data = await response.json(); // Assuming the backend returns JSON data
+            const { totalBalance, transactions } = data;
+
+            setTooltip({
+                content: `
+                    <div style="font-size: 14px; color: #E0E0E0;">
+                        <span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span>
+                        <span style="color: #E0E0E0; word-wrap: break-word;">${wallet.address || 'N/A'}</span><br><br>
+                        
+                        <span style="font-weight: bold; color: #FF9800;">💰 Total Balance:</span><br>
+                        <span>Native Balance: <span style="color: #E0E0E0;">${totalBalance.nativeBalance} ETH</span></span><br><br>
+                        
+                        <span style="font-weight: bold; color: #FF9800;">💰 Token Balances:</span><br>
+                        ${totalBalance.tokenBalances.map(token => `
+                            <div>
+                                <span style="color: #E0E0E0;">${token.tokenSymbol}: <span style="color: #FFFFFF;">${token.balance}</span></span><br>
+                            </div>
+                        `).join('')}
+                        
+                        <br><span style="font-weight: bold; color: #FF9800;">💰 Recent Transactions:</span><br>
+                        ${transactions.map(tx => `
+                            <div style="margin-bottom: 10px;">
+                                <strong>Hash:</strong> <span style="color: #FFFFFF;">${tx.hash}</span><br>
+                                <strong>From:</strong> <span style="color: #FFFFFF;">${tx.from}</span> 
+                                <strong>To:</strong> <span style="color: #FFFFFF;">${tx.to}</span><br>
+                                <strong>Amount:</strong> <span style="color: #FFFFFF;">${tx.value} ${tx.asset}</span><br>
+                                <strong>Date:</strong> <span style="color: #FFFFFF;">${new Date(tx.metadata.blockTimestamp).toLocaleString()}</span><br>
+                            </div>
+                        `).join('')}
+                    </div>
+                `
+            });
+
+
+
+        } catch (error) {
+            console.error("Error in selectWallet:", error);
+            // Step 7: Show an error in the tooltip if fetching fails
+            setTooltip({
+                content: `<span style="color: red; font-size: 14px;">Failed to load wallet data. Please try again later.</span>`
             });
         }
     };
@@ -401,16 +476,31 @@ const BubbleMap = ({ rawData }) => {
                         position: "absolute",
                         top: "0",
                         left: "0",
-                        background: "rgb(35, 48, 68)",
+                        background: "rgba(35, 48, 68, 0.5)", // Transparent background
                         color: "white",
                         padding: "10px",
                         borderRadius: "8px",
                         fontSize: "14px",
-                        zIndex: 20
+                        zIndex: 20,
+                        width: "300px", // Fixed width
+                        height: "65vh", // Fixed height
+                        overflow: "hidden", // Hide default scrollbar
                     }}
-                    dangerouslySetInnerHTML={{ __html: tooltip.content }}
-                />
+                >
+                    <div
+                        style={{
+                            width: "100%",
+                            height: "100%",
+                            overflowY: "auto", // Enable scrolling for the content
+                            paddingRight: "10px", // Provide space for custom scrollbar
+                            scrollbarWidth: "thin", // For Firefox: thin scrollbar
+                            scrollbarColor: "#4e5d6e #2d3a46", // Custom scrollbar color (thumb and track)
+                        }}
+                        dangerouslySetInnerHTML={{ __html: tooltip.content }}
+                    />
+                </div>
             )}
+
         </div>
     );
 };
