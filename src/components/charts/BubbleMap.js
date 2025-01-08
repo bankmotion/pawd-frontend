@@ -13,7 +13,10 @@ const BubbleMap = ({ rawData }) => {
     const [showWallets, setShowWallets] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [tooltip, setTooltip] = useState({
-        content: `<span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span><span style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${rawData.address || 'N/A'}</span></br><span style="font-weight: bold; color: #FF9800;">💰 Balance:</span> <span style="color: #E0E0E0;">${rawData.balance}</span>`
+        content: `<div style="font-size: 14px; color: #E0E0E0;"><span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span>
+        <a href="https://etherscan.io/address/${rawData.address}" target="_blank" style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${rawData.address || 'N/A'}</a><br><br>
+        <span style="font-weight: bold; color: #FF9800;">💰 Native Balance:</span><br>
+        <span><span style="color: #E0E0E0;">${rawData.balance} ETH</span></span></div>`
     });
     const [clickedNodeId, setClickedNodeId] = useState(null);
     const [visibilityMap, setVisibilityMap] = useState({}); // State for managing visibility of nodes/links.
@@ -126,7 +129,10 @@ const BubbleMap = ({ rawData }) => {
             .on("click", (event, d) => {
                 setClickedNodeId(d.id);
                 setTooltip({
-                    content: `<span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span><span style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${d.address || 'N/A'}</span></br><span style="font-weight: bold; color: #FF9800;">💰 Balance:</span> <span style="color: #E0E0E0;">${d.balance}</span>`
+                    content: `<div style="font-size: 14px; color: #E0E0E0;"><span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span>
+                    <a href="https://etherscan.io/address/${d.address}" target="_blank" style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${d.address || 'N/A'}</a><br><br>
+                    <span style="font-weight: bold; color: #FF9800;">💰 Native Balance:</span><br>
+                    <span><span style="color: #E0E0E0;">${d.balance} ETH</span></span></div>`
                 });
             });
 
@@ -290,7 +296,7 @@ const BubbleMap = ({ rawData }) => {
                 content: `
                     <div style="font-size: 14px; color: #E0E0E0;">
                         <span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span>
-                        <span style="color: #E0E0E0; word-wrap: break-word;">${wallet.address || 'N/A'}</span><br><br>
+                         <a href="https://etherscan.io/address/${wallet.address}" target="_blank" style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${wallet.address || 'N/A'}</a><br><br>
                         
                         <span style="font-weight: bold; color: #FF9800;">💰 Total Balance:</span><br>
                         <span>Native Balance: <span style="color: #E0E0E0;">${totalBalance.nativeBalance} ETH</span></span><br><br>
@@ -305,9 +311,9 @@ const BubbleMap = ({ rawData }) => {
                         <br><span style="font-weight: bold; color: #FF9800;">💰 Recent Transactions:</span><br>
                         ${transactions.map(tx => `
                             <div style="margin-bottom: 10px;">
-                                <strong>Hash:</strong> <span style="color: #FFFFFF;">${tx.hash}</span><br>
-                                <strong>From:</strong> <span style="color: #FFFFFF;">${tx.from}</span> 
-                                <strong>To:</strong> <span style="color: #FFFFFF;">${tx.to}</span><br>
+                                <strong>Hash:</strong> <a href="https://etherscan.io/tx/${tx.hash}" target="_blank" style="color: #FFFFFF;">${tx.hash}</a><br>
+                                <strong>From:</strong> <a href="https://etherscan.io/address/${tx.from}" target="_blank" style="color: #FFFFFF;">${tx.from}</a> 
+                                <strong>To:</strong> <a href="https://etherscan.io/address/${tx.to}" target="_blank" style="color: #FFFFFF;">${tx.to}</a><br>
                                 <strong>Amount:</strong> <span style="color: #FFFFFF;">${tx.value} ${tx.asset}</span><br>
                                 <strong>Date:</strong> <span style="color: #FFFFFF;">${new Date(tx.metadata.blockTimestamp).toLocaleString()}</span><br>
                             </div>
@@ -481,7 +487,6 @@ const BubbleMap = ({ rawData }) => {
                         padding: "10px",
                         borderRadius: "8px",
                         fontSize: "14px",
-                        zIndex: 20,
                         width: "300px", // Fixed width
                         height: "65vh", // Fixed height
                         overflow: "hidden", // Hide default scrollbar
