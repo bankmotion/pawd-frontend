@@ -166,8 +166,6 @@ const BubbleMap = ({ rawData, transactions }) => {
                             <span style="font-weight: bold; color: #FF9800;">💰 Recent Transactions:</span><br>${filteredTransactions.map(tx => `
                             <div style="margin-bottom: 10px;">
                                 <strong>Hash:</strong> <a href="https://etherscan.io/tx/${tx.hash}" target="_blank" style="color: #FFFFFF;">${tx.hash}</a><br>
-                                <strong>Amount:</strong> <span style="color: #FFFFFF;">${tx.value} ${tx.asset}</span><br>
-                                <strong>Date:</strong> <span style="color: #FFFFFF;">${new Date(tx.metadata.blockTimestamp).toLocaleString()}</span><br>
                             </div>`).join('')}                        
                             <br>
                             
@@ -349,8 +347,6 @@ const BubbleMap = ({ rawData, transactions }) => {
                         ${filteredTransactions.map(tx => `
                             <div style="margin-bottom: 10px;">
                                 <strong>Hash:</strong> <a href="https://etherscan.io/tx/${tx.hash}" target="_blank" style="color: #FFFFFF;">${tx.hash}</a><br>
-                                <strong>Amount:</strong> <span style="color: #FFFFFF;">${tx.value} ${tx.asset}</span><br>
-                                <strong>Date:</strong> <span style="color: #FFFFFF;">${new Date(tx.metadata.blockTimestamp).toLocaleString()}</span><br>
                             </div>
                         `).join('')}                        
                         <br>
