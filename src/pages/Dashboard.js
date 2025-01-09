@@ -24,6 +24,7 @@ const Dashboard = () => {
   const theme = useTheme();
   const [seedWalletAddress, setSeedWalletAddress] = useState('');
   const [seedWalletData, setSeedWalletData] = useState(null);
+  const [transactions, setTransactions] = useState(null);
   const [loading, setLoading] = useState(false); // New state for loading
 
   const fetchWalletData = async () => {
@@ -31,8 +32,9 @@ const Dashboard = () => {
     try {
       // const response = await axios.get(`http://localhost:5000/api/wallet/${seedWalletAddress}`);
       const response = await axios.get(`${SEVER_URL}/api/wallet/${seedWalletAddress}`)
-      
-      setSeedWalletData(response.data);
+
+      setSeedWalletData(response.data.jsonOutput);
+      setTransactions(response.data.walletTxs);
     } catch (error) {
       console.error('Error fetching wallet data:', error);
       alert('Failed to fetch wallet data. Please try again.');
@@ -180,7 +182,7 @@ const Dashboard = () => {
                       </Box>
                     </Box>
                   ) : seedWalletData ? (
-                    <BubbleMap rawData={seedWalletData} />
+                    <BubbleMap rawData={seedWalletData} transactions={transactions}/>
                   ) : (
                     <Box
                       sx={{

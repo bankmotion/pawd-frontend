@@ -7,7 +7,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
-const BubbleMap = ({ rawData }) => {
+const BubbleMap = ({ rawData, transactions }) => {
     const theme = useTheme();
     const svgRef = useRef();
     const [showWallets, setShowWallets] = useState(false);
@@ -19,7 +19,7 @@ const BubbleMap = ({ rawData }) => {
         <span><span style="color: #E0E0E0;">${rawData.balance} ETH</span></span></div>`
     });
     const [clickedNodeId, setClickedNodeId] = useState(null);
-    const [visibilityMap, setVisibilityMap] = useState({}); // State for managing visibility of nodes/links.
+    const [visibilityMap, setVisibilityMap] = useState({}); 
 
     const SEVER_URL = process.env.REACT_APP_SEVER_URL;
 
@@ -126,14 +126,64 @@ const BubbleMap = ({ rawData }) => {
                     d.fy = null;
                 })
             )
-            .on("click", (event, d) => {
+            .on("click", async (event, d) => {
                 setClickedNodeId(d.id);
                 setTooltip({
-                    content: `<div style="font-size: 14px; color: #E0E0E0;"><span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span>
-                    <a href="https://etherscan.io/address/${d.address}" target="_blank" style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${d.address || 'N/A'}</a><br><br>
-                    <span style="font-weight: bold; color: #FF9800;">💰 Native Balance:</span><br>
-                    <span><span style="color: #E0E0E0;">${d.balance} ETH</span></span></div>`
+                    content: `<span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span>
+                              <span style="font-size: 14px; color: #E0E0E0;">${d.address || 'N/A'}</span></br>
+                              <span style="font-weight: bold; color: #FF9800;">Loading additional data...</span>`
                 });
+
+                const response = await fetch(`${SEVER_URL}/api/wallet/data`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json', // Indicate that we're sending JSON data
+                    },
+                    body: JSON.stringify({
+                        address: d.address,
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch wallet data: ${response.statusText}`);
+                }
+
+                const totalBalance = await response.json(); // Assuming the backend returns JSON data
+
+                console.log(totalBalance, "totalBalance")
+
+                const filteredTransactions = transactions.filter((tx) => {
+                    return (
+                        (tx.from)?.toLowerCase() == (d.address).toLowerCase()
+                    );
+                });
+
+                setTooltip({
+                    content: `
+                        <div style="font-size: 14px; color: #E0E0E0;">
+                            <span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span>
+                             <a href="https://etherscan.io/address/${d.address}" target="_blank" style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${d.address || 'N/A'}</a><br><br>
+                            <span style="font-weight: bold; color: #FF9800;">💰 Recent Transactions:</span><br>${filteredTransactions.map(tx => `
+                            <div style="margin-bottom: 10px;">
+                                <strong>Hash:</strong> <a href="https://etherscan.io/tx/${tx.hash}" target="_blank" style="color: #FFFFFF;">${tx.hash}</a><br>
+                                <strong>Amount:</strong> <span style="color: #FFFFFF;">${tx.value} ${tx.asset}</span><br>
+                                <strong>Date:</strong> <span style="color: #FFFFFF;">${new Date(tx.metadata.blockTimestamp).toLocaleString()}</span><br>
+                            </div>`).join('')}                        
+                            <br>
+                            
+                            <span style="font-weight: bold; color: #FF9800;">💰 Total Balance:</span><br>
+                            <span>Native Balance: <span style="color: #E0E0E0;">${totalBalance.nativeBalance} ETH</span></span><br><br>
+                            
+                            <span style="font-weight: bold; color: #FF9800;">💰 Token Balances:</span><br>
+                            ${totalBalance.tokenBalances.map(token => `
+                                <div>
+                                    <span style="color: #E0E0E0;">${token.tokenSymbol}: <span style="color: #FFFFFF;">${token.balance}</span></span><br>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `
+                });
+
             });
 
         const text = svg
@@ -206,7 +256,6 @@ const BubbleMap = ({ rawData }) => {
         // Update visibility for nodes and links
         nodes.forEach((node) => {
             const visibility = visibilityMap[node.id] !== false; // Default is true.
-            // console.log(`Node ${node.id} visibility:`, visibility ? 'visible' : 'hidden');
             svg
                 .selectAll(`.node-${node.id}`)
                 .style("opacity", visibility ? 1 : 0)
@@ -217,7 +266,6 @@ const BubbleMap = ({ rawData }) => {
             const sourceVisible = visibilityMap[link.source.id] !== false;
             const targetVisible = visibilityMap[link.target.id] !== false;
             const visibility = sourceVisible && targetVisible;
-            // console.log(`Link visibility between ${link.source.id} and ${link.target.id}:`, visibility ? 'visible' : 'hidden');
             svg
                 .selectAll(
                     `.link-${link.source.id}-${link.target.id}`
@@ -229,6 +277,7 @@ const BubbleMap = ({ rawData }) => {
     }, [rawData, theme, clickedNodeId, visibilityMap]);
 
     console.log(clickedNodeId, visibilityMap[clickedNodeId], "clickedNodeId, visibilityMap[clickedNodeId]")
+
     const toggleVisibility = (wallet) => {
         console.log('Toggling visibility for:', wallet.address);
 
@@ -260,19 +309,12 @@ const BubbleMap = ({ rawData }) => {
             // Step 2: Update clicked node to highlight the wallet
             setClickedNodeId(walletNode.address);
 
-            // Step 3: Show a temporary "loading" tooltip while fetching data
             setTooltip({
                 content: `<span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span>
                           <span style="font-size: 14px; color: #E0E0E0;">${wallet.address || 'N/A'}</span></br>
                           <span style="font-weight: bold; color: #FF9800;">Loading additional data...</span>`
             });
 
-            // Step 4: Fetch data from the backend (asynchronous)
-            const { nodes } = transformData(rawData);
-            const mainWalletNode = nodes.find((node) => node.isMainWallet);
-            console.log(mainWalletNode, "mainWalletNode");
-
-            // Step 5: Make an API call to the backend with both wallet.address and mainWalletNode.address
             const response = await fetch(`${SEVER_URL}/api/wallet/data`, {
                 method: 'POST',
                 headers: {
@@ -280,7 +322,6 @@ const BubbleMap = ({ rawData }) => {
                 },
                 body: JSON.stringify({
                     address: wallet.address,
-                    mainWalletAddress: mainWalletNode.address,
                 }),
             });
 
@@ -288,15 +329,31 @@ const BubbleMap = ({ rawData }) => {
                 throw new Error(`Failed to fetch wallet data: ${response.statusText}`);
             }
 
-            // Step 6: Parse the response
-            const data = await response.json(); // Assuming the backend returns JSON data
-            const { totalBalance, transactions } = data;
+            const totalBalance = await response.json(); // Assuming the backend returns JSON data
+
+            console.log(totalBalance, "totalBalance")
+
+            const filteredTransactions = transactions.filter((tx) => {
+                return (
+                    (tx.from)?.toLowerCase() == (wallet.address).toLowerCase()
+                );
+            });
 
             setTooltip({
                 content: `
                     <div style="font-size: 14px; color: #E0E0E0;">
                         <span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span>
                          <a href="https://etherscan.io/address/${wallet.address}" target="_blank" style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${wallet.address || 'N/A'}</a><br><br>
+
+                         <span style="font-weight: bold; color: #FF9800;">💰 Recent Transactions:</span><br>
+                        ${filteredTransactions.map(tx => `
+                            <div style="margin-bottom: 10px;">
+                                <strong>Hash:</strong> <a href="https://etherscan.io/tx/${tx.hash}" target="_blank" style="color: #FFFFFF;">${tx.hash}</a><br>
+                                <strong>Amount:</strong> <span style="color: #FFFFFF;">${tx.value} ${tx.asset}</span><br>
+                                <strong>Date:</strong> <span style="color: #FFFFFF;">${new Date(tx.metadata.blockTimestamp).toLocaleString()}</span><br>
+                            </div>
+                        `).join('')}                        
+                        <br>
                         
                         <span style="font-weight: bold; color: #FF9800;">💰 Total Balance:</span><br>
                         <span>Native Balance: <span style="color: #E0E0E0;">${totalBalance.nativeBalance} ETH</span></span><br><br>
@@ -307,22 +364,9 @@ const BubbleMap = ({ rawData }) => {
                                 <span style="color: #E0E0E0;">${token.tokenSymbol}: <span style="color: #FFFFFF;">${token.balance}</span></span><br>
                             </div>
                         `).join('')}
-                        
-                        <br><span style="font-weight: bold; color: #FF9800;">💰 Recent Transactions:</span><br>
-                        ${transactions.map(tx => `
-                            <div style="margin-bottom: 10px;">
-                                <strong>Hash:</strong> <a href="https://etherscan.io/tx/${tx.hash}" target="_blank" style="color: #FFFFFF;">${tx.hash}</a><br>
-                                <strong>From:</strong> <a href="https://etherscan.io/address/${tx.from}" target="_blank" style="color: #FFFFFF;">${tx.from}</a> 
-                                <strong>To:</strong> <a href="https://etherscan.io/address/${tx.to}" target="_blank" style="color: #FFFFFF;">${tx.to}</a><br>
-                                <strong>Amount:</strong> <span style="color: #FFFFFF;">${tx.value} ${tx.asset}</span><br>
-                                <strong>Date:</strong> <span style="color: #FFFFFF;">${new Date(tx.metadata.blockTimestamp).toLocaleString()}</span><br>
-                            </div>
-                        `).join('')}
                     </div>
                 `
             });
-
-
 
         } catch (error) {
             console.error("Error in selectWallet:", error);
