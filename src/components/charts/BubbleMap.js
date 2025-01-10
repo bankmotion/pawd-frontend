@@ -89,7 +89,7 @@ const BubbleMap = ({ rawData, transactions }) => {
         const maxRadius = 30;
 
         const radiusScale = d3.scaleLog()
-            .domain([minBalance + 1, maxBalance])
+            .domain([minBalance + 1, maxBalance + 1])
             .range([minRadius, maxRadius]);
 
         const node = svg
@@ -133,7 +133,7 @@ const BubbleMap = ({ rawData, transactions }) => {
                               <span style="font-size: 14px; color: #E0E0E0;">${d.address || 'N/A'}</span></br>
                               <span style="font-weight: bold; color: #FF9800;">Loading additional data...</span>`
                 });
-
+                console.log("r",radiusScale(d.balance + 1), d.balance)
                 const response = await fetch(`${SEVER_URL}/api/wallet/data`, {
                     method: 'POST',
                     headers: {
