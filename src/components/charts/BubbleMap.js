@@ -6,6 +6,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
+import { yellow } from "@mui/material/colors";
 
 const BubbleMap = ({ rawData, categorizedWallets }) => {
     const theme = useTheme();
@@ -59,6 +60,18 @@ const BubbleMap = ({ rawData, categorizedWallets }) => {
             setClickedNodeId(mainWalletNode.id);
         }
 
+        const maxTransactionVolume = Math.max(...categorizedWallets.map(wallet =>
+            wallet.txs.reduce((total, tx) => total + parseFloat(tx.value), 0)
+        ));
+
+        console.log(maxTransactionVolume, "maxTransactionVolume");
+
+        const thicknessScale = d3.scaleLinear()
+            .domain([0, maxTransactionVolume])  // Scale the volume data
+            .range([3, 7]);
+
+        console.log(thicknessScale, "thicknessScale");
+
         const width = 800;
         const height = 600;
 
@@ -78,16 +91,197 @@ const BubbleMap = ({ rawData, categorizedWallets }) => {
             .force("y", d3.forceY(height / 2).strength(0.1))
             .alphaDecay(0.05);
 
+        // Adding a gradient to the arrows for a vibrant effect
+        svg.append("defs").append("linearGradient")
+            .attr("id", "arrowGradient")
+            .attr("x1", "0%")
+            .attr("y1", "100%")
+            .attr("x2", "100%")
+            .attr("y2", "0%")
+            .append("stop")
+            .attr("offset", "0%")
+            .attr("stop-color", "#00c6ff") // Start color (light blue)
+            .append("stop")
+            .attr("offset", "100%")
+            .attr("stop-color", "#0072ff"); // End color (blue)
+
+        // Create an SVG marker for the arrowhead
+        svg.append("defs").selectAll("marker")
+            .data(["arrow", "reverse-arrow"])
+            .enter().append("marker")
+            .attr("id", (d) => d)
+            .attr("viewBox", "0 -5 10 20")
+            .attr("refX", 40) // Controls the position of the arrowhead
+            .attr("refY", 0)
+            .attr("markerWidth", 4)
+            .attr("markerHeight", 4)
+            .attr("orient", "auto")
+            .style("filter", "url(#dropShadow)")
+            .append("path")
+            .attr("d", (d) => {
+                if (d === "reverse-arrow") {
+                    return "M15,-5L0,0L15,5"; // Reverse the arrow path
+                }
+                return "M0,-5L15,0L0,5"; // Regular arrow path
+            })
+            .attr("fill", "url(#arrowGradient)"); // Arrow color
+
+        svg.selectAll("marker path")
+            .transition()
+            .duration(2000) // Animation duration
+            .ease(d3.easeElastic) // Elastic ease for smooth bounce effect
+            .attr("transform", "scale(1.2)") // Scale up the arrow a little
+            .transition()
+            .duration(2000)
+            .ease(d3.easeElastic)
+            .attr("transform", "scale(1)"); // Return to normal size
+
+        svg.append("defs").append("filter")
+            .attr("id", "dropShadow")
+            .append("feDropShadow")
+            .attr("dx", 2)
+            .attr("dy", 2)
+            .attr("stdDeviation", 3)
+            .attr("flood-color", "black")
+            .attr("flood-opacity", 0.5);
+
         const link = svg
             .append("g")
             .attr("stroke", theme.palette.primary.light)
-            .attr("stroke-opacity", 0.8)
+            .attr("stroke-opacity", 1)
             .selectAll("line")
             .data(links)
             .join("line")
-            .attr("stroke-width", 2)
-            .attr("stroke-dasharray", "4,2")
+            .attr("stroke-width", (d) => {
+                console.log(d.target.id, "d.target.id")
+                const wallet = categorizedWallets.find((wallet) => wallet.address == d.target.id);
+                const transactionVolume = wallet?.txs.reduce((total, tx) => total + parseFloat(tx.value), 0) || 0;
+                console.log(transactionVolume, "transactionVolume");
+                return thicknessScale(transactionVolume);
+            })
+            .attr("stroke", (d) => {
+                const wallet = categorizedWallets.find((wallet) => wallet.address === d.target.id);
+                if (!wallet) return "#ffcc00"; // Default color if no wallet is found
+
+                // Calculate incoming and outgoing volumes
+                const incomingVolume = wallet.txs
+                    .filter((tx) => tx.from === wallet.address)
+                    .reduce((total, tx) => total + parseFloat(tx.value), 0);
+
+                const outcomingVolume = wallet.txs
+                    .filter((tx) => tx.to === wallet.address)
+                    .reduce((total, tx) => total + parseFloat(tx.value), 0);
+
+                // Determine the stroke color based on the net volume
+                const netVolume = incomingVolume - outcomingVolume;
+                if (netVolume > 0) return "#4CAF50"; // Positive net volume (incoming)
+                if (netVolume < 0) return "#FF5733";   // Negative net volume (outgoing)
+                return "#f4b400";
+            })
+            .attr("stroke-opacity", (d) => {
+                // Find the target wallet and its transactions
+                const wallet = categorizedWallets.find((wallet) => wallet.address === d.target.id);
+                if (!wallet) return 0.2; // Default low opacity if no wallet is found
+
+                // Assume transactions have a `timestamp` in Unix time (seconds)
+                const mostRecentTimestamp = Math.max(...wallet.txs.map((tx) => new Date(tx.metadata.blockTimestamp).getTime()));
+                const ageInSeconds = (Date.now() - mostRecentTimestamp) / 1000;
+
+                console.log(mostRecentTimestamp, "mostRecentTimestamp", ageInSeconds, "ageInSeconds");
+
+                // Define an opacity scale (e.g., recent = 1, old = 0.2)
+                const opacityScale = d3.scaleLinear()
+                    .domain([0, 60 * 60 * 24 * 30]) // From 0 to 30 days
+                    .range([1, 0.3]) // Full opacity to faded
+                    .clamp(true);
+
+                return opacityScale(ageInSeconds);
+            })
+            .attr("marker-end", (d) => {
+                const wallet = categorizedWallets.find((wallet) => wallet.address === d.target.id);
+                if (!wallet) return "url(#arrow)"; // Default marker if no wallet is found
+
+                // Find the most recent transaction
+                const mostRecentTx = wallet.txs.reduce((latest, tx) => {
+                    const txTime = new Date(tx.metadata.blockTimestamp).getTime();
+                    return txTime > latest.timestamp ? { ...tx, timestamp: txTime } : latest;
+                }, { timestamp: 0 });
+
+                // Check if the transaction is outgoing or incoming to determine direction
+                if (mostRecentTx.to === d.target.id) {
+                    // If the most recent transaction is incoming to the target, set arrow from source to target
+                    return "url(#arrow)";
+                } else if (mostRecentTx.from === d.target.id) {
+                    // If the most recent transaction is outgoing from the target, set arrow from target to source
+                    return "url(#reverse-arrow)"; // This should reference a different marker for the reverse direction
+                }
+                return "url(#arrow)"; // Default marker if no transaction found
+            })
             .attr("class", (d) => `link-${d.source.id}-${d.target.id}`);
+
+        svg.selectAll(".arrow")
+            .data(links)
+            .enter()
+            .append("circle")
+            .attr("class", "arrow")
+            .attr("r", 6) // Size of the arrow
+            .attr("fill", "#00c6ff") // Arrow color
+            .attr("cx", (d) => {
+                const wallet = categorizedWallets.find((wallet) => wallet.address === d.target.id);
+
+                // Find the most recent transaction
+                const mostRecentTx = wallet.txs.reduce((latestTx, currentTx) => {
+                    const latestTxTime = new Date(latestTx.metadata.blockTimestamp).getTime();
+                    const currentTxTime = new Date(currentTx.metadata.blockTimestamp).getTime();
+                    return currentTxTime > latestTxTime ? currentTx : latestTx;
+                }, wallet.txs[0]); // Initial value to avoid error when `txs` is not empty
+
+                // Determine arrow direction based on transaction
+                const isIngoing = mostRecentTx.from === d.target.id;
+                return isIngoing === true ? d.target.x : d.source.x
+            }) // Starting position of the arrow (source)
+            .attr("cy", (d) => {
+                const wallet = categorizedWallets.find((wallet) => wallet.address === d.target.id);
+
+                // Find the most recent transaction
+                const mostRecentTx = wallet.txs.reduce((latestTx, currentTx) => {
+                    const latestTxTime = new Date(latestTx.metadata.blockTimestamp).getTime();
+                    const currentTxTime = new Date(currentTx.metadata.blockTimestamp).getTime();
+                    return currentTxTime > latestTxTime ? currentTx : latestTx;
+                }, wallet.txs[0]); // Initial value to avoid error when `txs` is not empty
+
+                // Determine arrow direction based on transaction
+                const isIngoing = mostRecentTx.from === d.target.id;
+                return isIngoing === true ? d.target.y : d.source.y
+            })
+            .transition()
+            .duration(5000) // Duration of one arrow movement (5 seconds)
+            .ease(d3.easeLinear)
+            .attrTween("transform", function (d) {
+                const wallet = categorizedWallets.find((wallet) => wallet.address === d.target.id);
+
+                // Find the most recent transaction
+                const mostRecentTx = wallet.txs.reduce((latestTx, currentTx) => {
+                    const latestTxTime = new Date(latestTx.metadata.blockTimestamp).getTime();
+                    const currentTxTime = new Date(currentTx.metadata.blockTimestamp).getTime();
+                    return currentTxTime > latestTxTime ? currentTx : latestTx;
+                }, wallet.txs[0]); // Initial value to avoid error when `txs` is not empty
+
+                // Determine arrow direction based on transaction
+                const isOutgoing = mostRecentTx.from === d.target.id;
+
+                // Update arrow's direction based on the transaction flow
+                const xStart = isOutgoing ? d.target.x : d.source.x;
+                const yStart = isOutgoing ? d.target.y : d.source.y;
+                const xEnd = isOutgoing ? d.source.x : d.target.x+10;
+                const yEnd = isOutgoing ? d.source.y : d.target.y-15;
+
+                return function (t) {
+                    const x = xStart + (xEnd - xStart) * t;
+                    const y = yStart + (yEnd - yStart) * t;
+                    return `translate(${x}, ${y})`;
+                };
+            })
 
         const maxBalance = Math.max(...nodes.map((node) => node.balance));
         const minBalance = 0;
