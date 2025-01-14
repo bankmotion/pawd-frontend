@@ -7,7 +7,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
-const BubbleMap = ({ rawData, transactions }) => {
+const BubbleMap = ({ rawData, categorizedWallets }) => {
     const theme = useTheme();
     const svgRef = useRef();
     const [showWallets, setShowWallets] = useState(false);
@@ -19,7 +19,13 @@ const BubbleMap = ({ rawData, transactions }) => {
         <span><span style="color: #E0E0E0;">${rawData.balance} ETH</span></span></div>`
     });
     const [clickedNodeId, setClickedNodeId] = useState(null);
-    const [visibilityMap, setVisibilityMap] = useState({}); 
+    const [visibilityMap, setVisibilityMap] = useState({});
+
+    // Calculate the maximum profitability
+    const maxProfitability = Math.max(...categorizedWallets.map(wallet => wallet.profitability || 0));
+    const maxActivityFrequency = Math.max(...categorizedWallets.map(wallet => wallet.txs.length || 0));
+    console.log(`Maximum profitability: ${maxProfitability}`);
+    console.log(`maxActivityFrequency: ${maxActivityFrequency}`);
 
     const SEVER_URL = process.env.REACT_APP_SEVER_URL;
 
@@ -98,11 +104,51 @@ const BubbleMap = ({ rawData, transactions }) => {
             .data(nodes)
             .join("circle")
             .attr("r", (d) => (d.id === clickedNodeId ? 20 : d.isMainWallet ? 30 : radiusScale(d.balance + 1)))
-            .attr("fill", (d) =>
-                d.id === d.isMainWallet
-                    ? '#FF5733'
-                    : d3.interpolateRainbow(d.group / 10)
+            .attr("fill", (d) => {
+                console.log(`Determining fill color for node ${d.id}`);
+                if (d.isMainWallet) {
+                    console.log(`Node ${d.id} is a main wallet`);
+                    return '#FF5733'; // Main wallet
+                }
+                const wallet = categorizedWallets.find((wallet) => wallet.address == d.id);
+                console.log(`Categorized wallet for node ${d.id}:`, wallet);
+
+                if (wallet?.category === "Smart Contract") {
+                    console.log(`Node ${d.id} is a smart contract`);
+                    return 'white';
+                } else if (wallet?.profitability !== undefined && wallet?.profitability !== 0) {
+                    const normalizedProfitability = wallet.profitability / maxProfitability;
+                    console.log(`Node ${d.id} normalized profitability: ${normalizedProfitability}`);
+                    const adjustedProfitability = Math.max(normalizedProfitability, 0.5);
+                    if (normalizedProfitability > 0) {
+                        console.log(`Node ${d.id} has positive profitability: ${wallet.profitability}`);
+                        return d3.interpolateGreens(adjustedProfitability);
+                    } else {
+                        console.log(`Node ${d.id} has negative profitability: ${wallet.profitability}`);
+                        return d3.interpolateReds(Math.abs(adjustedProfitability));
+                    }
+                }
+
+                console.log(`Node ${d.id} is neutral`);
+                return '#5DADE2'; // Neutral
+            }
             )
+            .style("opacity", (d) => {
+                if (d.isMainWallet) {
+                    console.log(`Node ${d.id} is a main wallet`);
+                    return 1; // Main wallet always has full opacity
+                } else {
+                    const wallet = categorizedWallets.find((wallet) => wallet.address == d.id);
+                    if (wallet) {
+                        const normalizedActivity = wallet.txs.length / maxActivityFrequency;
+                        const adjustedOpacity = Math.max(normalizedActivity, 0.5); // Ensure opacity is at least 0.5
+                        console.log(`Node ${d.id} normalized activity: ${normalizedActivity}, adjusted opacity: ${adjustedOpacity}`);
+                        return adjustedOpacity;
+                    }
+                    console.log(`Node ${d.id} has no wallet data`);
+                    return 0.5; // Default minimum opacity for nodes with no wallet data
+                }
+            })
             .attr("stroke", (d) =>
                 d.id === clickedNodeId
                     ? theme.palette.secondary.main
@@ -133,7 +179,7 @@ const BubbleMap = ({ rawData, transactions }) => {
                               <span style="font-size: 14px; color: #E0E0E0;">${d.address || 'N/A'}</span></br>
                               <span style="font-weight: bold; color: #FF9800;">Loading additional data...</span>`
                 });
-                console.log("r",radiusScale(d.balance + 1), d.balance)
+                console.log("r", radiusScale(d.balance + 1), d.balance)
                 const response = await fetch(`${SEVER_URL}/api/wallet/data`, {
                     method: 'POST',
                     headers: {
@@ -152,23 +198,11 @@ const BubbleMap = ({ rawData, transactions }) => {
 
                 console.log(totalBalance, "totalBalance")
 
-                const filteredTransactions = transactions.filter((tx) => {
-                    return (
-                        (tx.from)?.toLowerCase() == (d.address).toLowerCase()
-                    );
-                });
-
                 setTooltip({
                     content: `
                         <div style="font-size: 14px; color: #E0E0E0;">
                             <span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span>
                              <a href="https://etherscan.io/address/${d.address}" target="_blank" style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${d.address || 'N/A'}</a><br><br>
-                            <span style="font-weight: bold; color: #FF9800;">💰 Recent Transactions:</span><br>${filteredTransactions.map(tx => `
-                            <div style="margin-bottom: 10px;">
-                                <strong>Hash:</strong> <a href="https://etherscan.io/tx/${tx.hash}" target="_blank" style="color: #FFFFFF;">${tx.hash}</a><br>
-                            </div>`).join('')}                        
-                            <br>
-                            
                             <span style="font-weight: bold; color: #FF9800;">💰 Total Balance:</span><br>
                             <span>Native Balance: <span style="color: #E0E0E0;">${totalBalance.nativeBalance} ETH</span></span><br><br>
                             
@@ -331,25 +365,11 @@ const BubbleMap = ({ rawData, transactions }) => {
 
             console.log(totalBalance, "totalBalance")
 
-            const filteredTransactions = transactions.filter((tx) => {
-                return (
-                    (tx.from)?.toLowerCase() == (wallet.address).toLowerCase()
-                );
-            });
-
             setTooltip({
                 content: `
                     <div style="font-size: 14px; color: #E0E0E0;">
                         <span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span>
                          <a href="https://etherscan.io/address/${wallet.address}" target="_blank" style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${wallet.address || 'N/A'}</a><br><br>
-
-                         <span style="font-weight: bold; color: #FF9800;">💰 Recent Transactions:</span><br>
-                        ${filteredTransactions.map(tx => `
-                            <div style="margin-bottom: 10px;">
-                                <strong>Hash:</strong> <a href="https://etherscan.io/tx/${tx.hash}" target="_blank" style="color: #FFFFFF;">${tx.hash}</a><br>
-                            </div>
-                        `).join('')}                        
-                        <br>
                         
                         <span style="font-weight: bold; color: #FF9800;">💰 Total Balance:</span><br>
                         <span>Native Balance: <span style="color: #E0E0E0;">${totalBalance.nativeBalance} ETH</span></span><br><br>
