@@ -257,6 +257,7 @@ const BubbleMap = ({ rawData, categorizedWallets }) => {
             .transition()
             .duration(5000) // Duration of one arrow movement (5 seconds)
             .ease(d3.easeLinear)
+            .style("opacity", 0)
             .attrTween("transform", function (d) {
                 const wallet = categorizedWallets.find((wallet) => wallet.address === d.target.id);
 
@@ -273,8 +274,8 @@ const BubbleMap = ({ rawData, categorizedWallets }) => {
                 // Update arrow's direction based on the transaction flow
                 const xStart = isOutgoing ? d.target.x : d.source.x;
                 const yStart = isOutgoing ? d.target.y : d.source.y;
-                const xEnd = isOutgoing ? d.source.x : d.target.x+10;
-                const yEnd = isOutgoing ? d.source.y : d.target.y-15;
+                const xEnd = isOutgoing ? d.source.x : d.target.x;
+                const yEnd = isOutgoing ? d.source.y : d.target.y;
 
                 return function (t) {
                     const x = xStart + (xEnd - xStart) * t;
