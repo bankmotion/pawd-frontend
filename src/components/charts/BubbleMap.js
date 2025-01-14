@@ -298,7 +298,7 @@ const BubbleMap = ({ rawData, categorizedWallets }) => {
             .selectAll("circle")
             .data(nodes)
             .join("circle")
-            .attr("r", (d) => (d.id === clickedNodeId ? 20 : d.isMainWallet ? 30 : radiusScale(d.balance + 1)))
+            .attr("r", (d) => (radiusScale(d.balance + 1)))
             .attr("fill", (d) => {
                 console.log(`Determining fill color for node ${d.id}`);
                 if (d.isMainWallet) {
@@ -393,11 +393,28 @@ const BubbleMap = ({ rawData, categorizedWallets }) => {
 
                 console.log(totalBalance, "totalBalance")
 
+                const wallet = categorizedWallets.find((wallet) => wallet.address == d.id);
+
+                const transactions = wallet.txs;
+
+                const profitability = wallet.profitability;
+
+                function getProfitabilityColor(value) {
+                    if (value > 0) return "green"; // Positive: Green
+                    if (value < 0) return "red";   // Negative: Red
+                    return "gray";                 // Zero: Gray
+                }
+
                 setTooltip({
                     content: `
                         <div style="font-size: 14px; color: #E0E0E0;">
                             <span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span>
                              <a href="https://etherscan.io/address/${d.address}" target="_blank" style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${d.address || 'N/A'}</a><br><br>
+
+                            <span style="font-weight: bold; color: #FF9800;">💰 Number of Transactions: <span style="color:white;">${transactions.length}</span></span><br><br>
+
+                            <span style="font-weight: bold; color: #FF9800;">💰 Profitability: <span style="color:${getProfitabilityColor(profitability)};">${profitability.toFixed(4)}</span></span><br><br>
+
                             <span style="font-weight: bold; color: #FF9800;">💰 Total Balance:</span><br>
                             <span>Native Balance: <span style="color: #E0E0E0;">${totalBalance.nativeBalance} ETH</span></span><br><br>
                             
@@ -560,12 +577,28 @@ const BubbleMap = ({ rawData, categorizedWallets }) => {
 
             console.log(totalBalance, "totalBalance")
 
+            const targetWallet = categorizedWallets.find((targetWallet) => targetWallet.address == walletNode.address);
+
+            const transactions = targetWallet.txs;
+
+            const profitability = targetWallet.profitability;
+
+            function getProfitabilityColor(value) {
+                if (value > 0) return "green"; // Positive: Green
+                if (value < 0) return "red";   // Negative: Red
+                return "gray";                 // Zero: Gray
+            }
+
             setTooltip({
                 content: `
                     <div style="font-size: 14px; color: #E0E0E0;">
                         <span style="font-size: 16px; font-weight: bold; color: #4CAF50;">Address:</span>
                          <a href="https://etherscan.io/address/${wallet.address}" target="_blank" style="font-size: 14px; color: #E0E0E0; word-wrap: break-word;">${wallet.address || 'N/A'}</a><br><br>
-                        
+
+                         <span style="font-weight: bold; color: #FF9800;">💰 Number of Transactions: <span style="color:white;">${transactions.length}</span></span><br><br>
+
+                         <span style="font-weight: bold; color: #FF9800;">💰 Profitability: <span style="color:${getProfitabilityColor(profitability)};">${profitability.toFixed(4)}</span></span><br><br>
+
                         <span style="font-weight: bold; color: #FF9800;">💰 Total Balance:</span><br>
                         <span>Native Balance: <span style="color: #E0E0E0;">${totalBalance.nativeBalance} ETH</span></span><br><br>
                         
